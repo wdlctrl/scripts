@@ -7,7 +7,6 @@
 while true; do # inicio do ciclo
 
 echo "Para usar esse script de o comando 'su' para que possa executar como root.
-Assim que eu souber qual o bug ta rolando com o pkexec eu modificarei o script.
 "
 
 # Menu para escolher qual programa a ser instalado
