@@ -1,0 +1,85 @@
+(async function() {
+    const delay = ms => new Promise(res => setTimeout(res, ms));
+    const webhookURL = "https://hook.us2.make.com/3b7bo7suh7rwhlbll5srltu599zgrdug"; 
+
+    // 1. Identificação Robusta do Ativo
+    // Buscamos o texto que está antes da barra no cabeçalho de preço ou título
+    let ativoReal = "Desconhecido";
+    const elAtivo = document.querySelector('.pair-name') || document.querySelector('h1') || {innerText: document.title};
+    ativoReal = elAtivo.innerText.split('/')[0].split(' ')[0].trim();
+
+    const acao = prompt(`Ativo: ${ativoReal} | Tipo? (c) Compra / (v) Venda`, "v").toLowerCase();
+    const numOrdens = parseInt(prompt("Quantas ordens deseja executar?", "5"));
+    const variacaoFixa = 0.001; 
+
+    const todosBotoesPrincipais = document.querySelectorAll('button.btn.base-green, button.btn.base-red');
+    const botaoExecutar = (acao === 'c') ? todosBotoesPrincipais[0] : todosBotoesPrincipais[1];
+
+    if (!botaoExecutar) return alert("❌ Erro: Botão de execução não encontrado.");
+    const container = botaoExecutar.parentElement.parentElement;
+
+    for (let i = 1; i <= numOrdens; i++) {
+        console.log(`🚀 Ordem ${i}/${numOrdens} para ${ativoReal}`);
+
+        const inputs = container.querySelectorAll('input');
+        const inputPreco = inputs[0]; 
+        const inputQtd = inputs[1];   
+
+        const rawPrice = document.querySelector('.price-value').innerText;
+        const priceBase = parseFloat(rawPrice.replace('R$', '').replace(/\./g, '').replace(',', '.'));
+        
+        let novoPreco = (acao === 'c') ? (priceBase * (1 - (i * variacaoFixa))) : (priceBase * (1 + (i * variacaoFixa)));
+        let novoPrecoStr = novoPreco.toFixed(8).replace('.', ',');
+        const qtdAleatoria = (Math.random() * 4).toFixed(5).replace('.', ',');
+
+        const inject = (el, val) => {
+            if(!el) return;
+            el.focus(); el.value = val;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' }));
+        };
+
+        inject(inputQtd, qtdAleatoria);
+        await delay(600);
+        inject(inputPreco, novoPrecoStr);
+        await delay(1200);
+
+        if (!botaoExecutar.disabled) {
+            botaoExecutar.click(); 
+            await delay(1500); 
+
+            // --- Captura da Taxa no Modal ---
+            const spanTaxa = Array.from(document.querySelectorAll('span')).find(el => el.innerText.includes('1.5%'));
+            let taxaCapturada = "N/A";
+            if (spanTaxa) {
+                const match = spanTaxa.innerText.match(/[\d,.]+(?=\))/);
+                taxaCapturada = match ? match[0] : "Erro Regex";
+            }
+
+            const btnConfirmar = Array.from(document.querySelectorAll('button')).find(el => el.textContent.toLowerCase().includes('ordem'));
+            if(btnConfirmar) btnConfirmar.click();
+
+            await delay(2500);
+            const btnFechar = Array.from(document.querySelectorAll('a')).find(el => el.textContent.toLowerCase().includes('fechar'));
+            if(btnFechar) btnFechar.click();
+
+            // --- Envio para o Make com Ativo e Taxa Corretos ---
+            fetch(webhookURL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    timestamp: new Date().toLocaleString('pt-BR'),
+                    ativo: ativoReal, // <--- AGORA VAI O NOME REAL (EX: APNKAA)
+                    tipo: acao === 'c' ? 'COMPRA' : 'VENDA',
+                    preco_inicial_tela: priceBase.toString().replace('.', ','),
+                    preco_enviado: novoPrecoStr,
+                    quantidade: qtdAleatoria,
+                    taxa_referencia_modal: taxaCapturada,
+                    iteracao: i
+                })
+            }).catch(e => console.error("Log failed", e));
+        }
+        await delay(3000);
+    }
+    alert(`Sucesso! ${numOrdens} ordens de ${ativoReal} registradas.`);
+})();
