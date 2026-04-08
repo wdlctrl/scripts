@@ -1,0 +1,64 @@
+(async function() {
+    const delay = ms => new Promise(res => setTimeout(res, ms));
+    
+    // Função para buscar os botões de detalhes atualizados
+    const buscarBotoes = () => Array.from(document.querySelectorAll('*'))
+                                   .filter(el => el.children.length === 0 && 
+                                           el.textContent.toUpperCase().includes('DETALHES'));
+
+    let botoes = buscarBotoes();
+    console.log(`🚀 Otto: Encontrei ${botoes.length} ordens.`);
+
+    if (botoes.length === 0) return alert("Nenhuma ordem encontrada!");
+    if (!confirm(`Deseja cancelar ${botoes.length} ordens uma por uma?`)) return;
+
+    for (let i = 0; i < botoes.length; i++) {
+        // RE-BUSCA os botões a cada ciclo para não pegar elementos "mortos"
+        let listaAtual = buscarBotoes();
+        let alvo = listaAtual[0]; // Foca sempre no primeiro da lista restante
+
+        if (!alvo) break;
+
+        console.log(`🎯 Processando ordem ${i + 1}...`);
+        alvo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await delay(800);
+        alvo.click(); // Abre o modal
+        
+        // --- CAMADA DE SEGURANÇA: Espera o modal abrir ---
+        await delay(2000); 
+
+        // 1. Clica em "CANCELAR ORDEM" (Botão Vermelho no centro)
+        const btnCancelar = Array.from(document.querySelectorAll('button, div, span'))
+                                 .find(el => el.textContent.trim().toUpperCase() === 'CANCELAR ORDEM');
+
+        if (btnCancelar) {
+            btnCancelar.click();
+            await delay(1500); // Espera o banner azul de confirmação subir
+
+            // 2. Clicar no botão do Banner Azul "SIM, CANCELAR"
+            const btnSim = Array.from(document.querySelectorAll('button, div, span'))
+                                .find(el => el.textContent.trim().toUpperCase() === 'SIM, CANCELAR');
+
+            if (btnSim) {
+                btnSim.click();
+                console.log(`✅ Ordem ${i + 1} cancelada.`);
+                
+                // --- PONTO CRÍTICO: Esperar o modal sumir completamente ---
+                // Se o site for lento, aumente esse tempo para 5000
+                await delay(4500); 
+            }
+        } else {
+            console.log(`⚠️ Não achei o botão de cancelar no modal ${i + 1}. Tentando fechar.`);
+            const fechar = document.querySelector('button[aria-label="Close"], .close, i.fa-times');
+            if(fechar) fechar.click();
+            await delay(1500);
+        }
+        
+        // Garante que o modal foi fechado clicando no Body se necessário
+        document.body.click();
+        await delay(500);
+    }
+
+    alert("Otto finalizou a limpeza!");
+    location.reload();
+})();
